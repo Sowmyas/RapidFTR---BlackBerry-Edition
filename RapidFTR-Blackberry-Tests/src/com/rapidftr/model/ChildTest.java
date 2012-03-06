@@ -168,5 +168,14 @@ public class ChildTest {
         child.setField("histories", histories);
         assertEquals("rapidftr", child.flaggedByUserName());
     }
+    
+    @Test
+    public void shouldReturnImageLocations(){
+    	Child child = ChildFactory.newChild();
+    	String imageLocations = "[\"photo1\",\"photo2\"]";
+    	child.setField("photo_keys",imageLocations);
+    	assertTrue(child.getImageLocations()[0].equals("photo1"));
+    	assertTrue(child.getImageLocations()[1].equals("photo2"));
+    }
 
 }

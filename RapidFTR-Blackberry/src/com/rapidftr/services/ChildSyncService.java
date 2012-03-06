@@ -27,32 +27,114 @@ public class ChildSyncService extends RequestAwareService {
 	public static final String CHILD_TO_SYNC = "childToSync";
 
 	private final ChildrenRecordStore childRecordStore;
-    private ChildPhotoUpdater childPhotoUpdater;
-    private HttpService httpService;
-    private final DateFormatter dateFormatter;
+	private ChildPhotoUpdater childPhotoUpdater;
+	private HttpService httpService;
+	private final DateFormatter dateFormatter;
 
 	public ChildSyncService(HttpService httpService,
-			ChildrenRecordStore childRecordStore, ChildPhotoUpdater photoUpdater, DateFormatter dateFormatter) {
+			ChildrenRecordStore childRecordStore,
+			ChildPhotoUpdater photoUpdater, DateFormatter dateFormatter) {
 		// TODO get rid of dependency on RequestAwareService/requesthandler
-        super(httpService);
-        this.childRecordStore = childRecordStore;
-        this.childPhotoUpdater = photoUpdater;
-        this.httpService = httpService;
-        this.dateFormatter = dateFormatter;
-    }
+		super(httpService);
+		this.childRecordStore = childRecordStore;
+		this.childPhotoUpdater = photoUpdater;
+		this.httpService = httpService;
+		this.dateFormatter = dateFormatter;
+	}
 
-    public ChildSyncService(HttpService httpService, ChildrenRecordStore childRecordStore, DateFormatter dateFormatter) {
-        this(httpService, childRecordStore, new ChildPhotoUpdater(httpService, childRecordStore), dateFormatter);
-    }
+	public ChildSyncService(HttpService httpService,
+			ChildrenRecordStore childRecordStore, DateFormatter dateFormatter) {
+		this(httpService, childRecordStore, new ChildPhotoUpdater(httpService,
+				childRecordStore), dateFormatter);
+	}
 
-    private void uploadChildren(final Children children, final ChildSyncListener listener) {
+	public static String[] split(String strString, String strDelimiter) {
+		String[] strArray;
+		int iOccurrences = 0;
+		int iIndexOfInnerString = 0;
+		int iIndexOfDelimiter = 0;
+		int iCounter = 0;
+
+		if (strString == null) {
+			throw new IllegalArgumentException("Input string cannot be null.");
+		}
+
+		if (strDelimiter.length() <= 0 || strDelimiter == null) {
+			throw new IllegalArgumentException(
+					"Delimeter cannot be null or empty.");
+		}
+
+		if (strString.startsWith(strDelimiter)) {
+			strString = strString.substring(strDelimiter.length());
+		}
+
+		if (!strString.endsWith(strDelimiter)) {
+			strString += strDelimiter;
+		}
+
+		while ((iIndexOfDelimiter = strString.indexOf(strDelimiter,
+				iIndexOfInnerString)) != -1) {
+			iOccurrences += 1;
+			iIndexOfInnerString = iIndexOfDelimiter + strDelimiter.length();
+		}
+
+		strArray = new String[iOccurrences];
+
+		iIndexOfInnerString = 0;
+		iIndexOfDelimiter = 0;
+
+		while ((iIndexOfDelimiter = strString.indexOf(strDelimiter,
+				iIndexOfInnerString)) != -1) {
+
+			strArray[iCounter] = strString.substring(iIndexOfInnerString,
+					iIndexOfDelimiter);
+
+			iIndexOfInnerString = iIndexOfDelimiter + strDelimiter.length();
+
+			iCounter += 1;
+		}
+
+		return strArray;
+	}
+
+	private void uploadChildren(final Children children,
+			final ChildSyncListener listener) {
 
 		children.forEachChild(new ChildAction() {
 			int index = 0;
 
 			public void execute(Child child) {
 				Hashtable context = new Hashtable();
+//				if (child.isChildImagesUpdated()) {
+//					String fileNames = child.getUpdatedImages();
+//					 fileNames = fileNames.replace('[', ' ');
+//					 fileNames = fileNames.replace(']', ' ');
+//					 fileNames = fileNames.replace('"', ' ');
+//					 fileNames = fileNames.trim();
+//
+//					String fileName[] = split(fileNames, ",");
+//					for (int i = 0; i < fileName.length; i++) {
+//						fileName[i] = fileName[i].trim();
+//						
+//					
+//					PostData postData = child.getImagePostData(fileName[i]);
+//
+//					context.put(PROCESS_STATE, "Uploading [" + (++index) + "/"
+//							+ children.count() + "]");
+//					context.put(CHILD_TO_SYNC, child);
+//					Arg multiPart = new Arg("Content-Type",
+//							"multipart/form-data;boundary="
+//									+ postData.getBoundary());
+//					Arg json = HttpUtility.HEADER_ACCEPT_JSON;
+//					Arg[] httpArgs = { multiPart, json };
+//					
+//						httpService.put("children/" + child.getField("_id"),
+//								null, httpArgs, listener, postData, context);
+//					
+//					}
+//				}
 				PostData postData = child.getPostData();
+
 				context.put(PROCESS_STATE, "Uploading [" + (++index) + "/"
 						+ children.count() + "]");
 				context.put(CHILD_TO_SYNC, child);
@@ -62,13 +144,12 @@ public class ChildSyncService extends RequestAwareService {
 				Arg json = HttpUtility.HEADER_ACCEPT_JSON;
 				Arg[] httpArgs = { multiPart, json };
 				if (child.isNewChild()) {
-					httpService.post("children", null, httpArgs, listener, postData,
-							context);
+					httpService.post("children", null, httpArgs, listener,
+							postData, context);
 				} else if (child.isUpdated()) {
-					httpService.put("children/" + child.getField("_id"),
-							null, httpArgs, listener, postData, context);
+					httpService.put("children/" + child.getField("_id"), null,
+							httpArgs, listener, postData, context);
 				}
-
 			}
 		});
 
@@ -77,8 +158,9 @@ public class ChildSyncService extends RequestAwareService {
 	public void syncChildRecord(Child child) {
 		Vector childrenList = new Vector();
 		childrenList.addElement(child);
-        ChildSyncListener listener =
-                new ChildSyncListener(requestHandler.getRequestCallBack(), 1, childRecordStore, childPhotoUpdater);
+		ChildSyncListener listener = new ChildSyncListener(
+				requestHandler.getRequestCallBack(), 1, childRecordStore,
+				childPhotoUpdater);
 		uploadChildren(new Children(childrenList), listener);
 	}
 
@@ -87,29 +169,31 @@ public class ChildSyncService extends RequestAwareService {
 			public void run() {
 				requestHandler.getRequestCallBack().updateProgressMessage(
 						"Syncing");
-                Children childrenToUpload = childrenToBeUploaded();
-                try {
-                    final Vector childrenToBeDownloaded = childRecordsNeedToBeDownload();
-                    ChildSyncListener listener =
-                                    new ChildSyncListener(requestHandler.getRequestCallBack(),
-                                            childrenToUpload.count() + childrenToBeDownloaded.size(),
-                                            childRecordStore, childPhotoUpdater);
-                    uploadChildren(childrenToUpload, listener);
-                    downloadNewChildRecords(childrenToBeDownloaded, listener);
-                } catch (Exception e) {
-                    e.printStackTrace();
-                    requestHandler.markProcessFailed("Error syncing children");
-                }
+				Children childrenToUpload = childrenToBeUploaded();
+				try {
+					final Vector childrenToBeDownloaded = childRecordsNeedToBeDownload();
+					ChildSyncListener listener = new ChildSyncListener(
+							requestHandler.getRequestCallBack(),
+							childrenToUpload.count()
+									+ childrenToBeDownloaded.size(),
+							childRecordStore, childPhotoUpdater);
+					uploadChildren(childrenToUpload, listener);
+					downloadNewChildRecords(childrenToBeDownloaded, listener);
+				} catch (Exception e) {
+					e.printStackTrace();
+					requestHandler.markProcessFailed("Error syncing children");
+				}
 			};
 		}.start();
 
 	}
 
-    private Children childrenToBeUploaded() {
-        return childRecordStore.getAll().getChildrenToUpload();
-    }
+	private Children childrenToBeUploaded() {
+		return childRecordStore.getAll().getChildrenToUpload();
+	}
 
-    private void downloadNewChildRecords(Vector childrenToBeDownloaded, final ChildSyncListener listener) {
+	private void downloadNewChildRecords(Vector childrenToBeDownloaded,
+			final ChildSyncListener listener) {
 		Enumeration items = childrenToBeDownloaded.elements();
 		int index = 0;
 		while (items.hasMoreElements()) {
@@ -123,8 +207,8 @@ public class ChildSyncService extends RequestAwareService {
 			child.setField("name", childId);
 			child.setField("last_known_location", "NA");
 			context.put(CHILD_TO_SYNC, child);
-			httpService.get("children/" + childId, null, HttpUtility
-					.makeJSONHeader(), listener, context);
+			httpService.get("children/" + childId, null,
+					HttpUtility.makeJSONHeader(), listener, context);
 		}
 
 	}
@@ -152,28 +236,28 @@ public class ChildSyncService extends RequestAwareService {
 		Hashtable mapping = new Hashtable();
 
 		Response response;
-        response = requestHandler.get("children-ids", null, HttpUtility
-                .makeJSONHeader());
+		response = requestHandler.get("children-ids", null,
+				HttpUtility.makeJSONHeader());
 
-        if (response != null) {
-            Result result = response.getResult();
-            HttpServer.printResponse(response);
-            JSONArray jsonChildren;
+		if (response != null) {
+			Result result = response.getResult();
+			HttpServer.printResponse(response);
+			JSONArray jsonChildren;
 
-            jsonChildren = result.getAsArray("");
+			jsonChildren = result.getAsArray("");
 
-            for (int i = 0; i < jsonChildren.length(); i++) {
-                JSONObject jsonChild = (JSONObject) jsonChildren.get(i);
+			for (int i = 0; i < jsonChildren.length(); i++) {
+				JSONObject jsonChild = (JSONObject) jsonChildren.get(i);
 
-                mapping.put(jsonChild.getString("id"), jsonChild
-                        .getString("rev"));
-            }
-        }
+				mapping.put(jsonChild.getString("id"),
+						jsonChild.getString("rev"));
+			}
+		}
 
 		return mapping;
 	}
 
-    private Hashtable getOfflineStoredChildrenIdRevMapping() {
+	private Hashtable getOfflineStoredChildrenIdRevMapping() {
 		final Hashtable mapping = new Hashtable();
 		childRecordStore.getAll().forEachChild(new ChildAction() {
 
@@ -194,10 +278,11 @@ public class ChildSyncService extends RequestAwareService {
 		childRecordStore.deleteAll();
 	}
 
-    // TODO this is not used anymore - to remove this need to get rid of dependency on RequestAwareService
-    public void onRequestFailure(Object context, Exception exception) {
-    }
+	// TODO this is not used anymore - to remove this need to get rid of
+	// dependency on RequestAwareService
+	public void onRequestFailure(Object context, Exception exception) {
+	}
 
-    public void onRequestSuccess(Object context, Response response) {
-    }
+	public void onRequestSuccess(Object context, Response response) {
+	}
 }

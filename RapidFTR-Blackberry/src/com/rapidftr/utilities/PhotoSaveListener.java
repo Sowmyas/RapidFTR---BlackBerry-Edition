@@ -12,19 +12,19 @@ public abstract class PhotoSaveListener implements FileSystemJournalListener {
 	public PhotoSaveListener() {
 		lastUSN = FileSystemJournal.getNextUSN();
 	}
-
+	
 	public void fileJournalChanged() {
 
 		long USN = FileSystemJournal.getNextUSN();
 
-		for (long i = USN - 1; i >= lastUSN; --i) {
+		for (long i = USN - 1; i >lastUSN; --i) {
 
 			FileSystemJournalEntry entry = FileSystemJournal.getEntry(i);
 
 			if (entry != null) {
 
 				if (entry.getEvent() == FileSystemJournalEntry.FILE_ADDED
-						|| entry.getEvent() == FileSystemJournalEntry.FILE_CHANGED
+		  				|| entry.getEvent() == FileSystemJournalEntry.FILE_CHANGED
 						|| entry.getEvent() == FileSystemJournalEntry.FILE_RENAMED) {
 
 					if (entry.getPath().indexOf(".jpg") != -1) {

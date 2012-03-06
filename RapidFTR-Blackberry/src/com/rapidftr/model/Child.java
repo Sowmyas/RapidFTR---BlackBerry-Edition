@@ -4,6 +4,8 @@ import java.util.Enumeration;
 import java.util.Hashtable;
 import java.util.Vector;
 
+import net.rim.device.api.ui.component.BitmapField;
+import net.rim.device.api.ui.component.Dialog;
 import net.rim.device.api.util.Persistable;
 
 import com.rapidftr.form.FormFieldAction;
@@ -20,17 +22,17 @@ public class Child implements Persistable {
 
 	public static final String CREATED_AT_KEY = "created_at";
 	public static final String LAST_UPDATED_KEY = "last_updated_at";
-    private static final String UNIQUE_IDENTIFIER = "unique_identifier";
-    public static final String FLAG_MESSAGE_KEY = "flag_message";
-    public static final String FLAGGED_KEY = "flag";
+	private static final String UNIQUE_IDENTIFIER = "unique_identifier";
+	public static final String FLAG_MESSAGE_KEY = "flag_message";
+	public static final String FLAGGED_KEY = "flag";
 
-    private final Hashtable data;
+	private final Hashtable data;
 	private final Hashtable changedFields;
 
 	private ChildStatus childStatus;
-    public static final String NAME = "name";
+	public static final String NAME = "name";
 
-    public Child(String creationDate) {
+	public Child(String creationDate) {
 		changedFields = new Hashtable();
 		data = new Hashtable();
 		put("_id", RandomStringGenerator.generate(32));
@@ -42,6 +44,14 @@ public class Child implements Persistable {
 		return (String) data.get("name");
 	}
 
+	public boolean isChildImagesUpdated(){
+		return changedFields.containsKey("photo_keys");
+	}
+	
+	public String getUpdatedImages(){
+		return (String)changedFields.get("photo_keys");
+	}
+	
 	public PostData getPostData() {
 
 		Vector parts = new Vector();
@@ -62,6 +72,31 @@ public class Child implements Persistable {
 				}
 				continue;
 			}
+
+			if (key.equals("photo_keys")) {
+				String fileNames = (String) changedFields.get(key);
+				 fileNames = fileNames.replace('[', ' ');
+				 fileNames = fileNames.replace(']', ' ');
+				 fileNames = fileNames.replace('"', ' ');
+				 fileNames = fileNames.trim();
+
+				String fileName[] = split(fileNames, ",");
+				for (int i = 0; i < fileName.length; i++) {
+					fileName[i] = fileName[i].trim();
+					if (!StringUtility.isBlank(String.valueOf(fileName[i]))) {
+						parts.addElement(multiPart(fileName[i], "photo",
+								HttpUtility.HEADER_CONTENT_TYPE_IMAGE));
+
+					}
+				}
+				if (!StringUtility.isBlank(String.valueOf(value))) {
+					parts.addElement(multiPart(value, "photo",
+							HttpUtility.HEADER_CONTENT_TYPE_IMAGE));
+
+				}
+				continue;
+			}
+
 			if (key.equals("recorded_audio")) {
 				if (value != null
 						&& !StringUtility.isBlank(String.valueOf(value))) {
@@ -184,7 +219,7 @@ public class Child implements Persistable {
 		if (isUpdated()) {
 			childStatus = ChildStatus.UPDATED;
 		}
-        setField(Child.LAST_UPDATED_KEY, updatedDate);
+		setField(Child.LAST_UPDATED_KEY, updatedDate);
 	}
 
 	public ChildHistories getHistory() {
@@ -193,7 +228,7 @@ public class Child implements Persistable {
 
 	public boolean hasChangesByOtherThan(final String username) {
 		ChildHistories histories = getHistory();
-		final boolean[] result = {false};
+		final boolean[] result = { false };
 		histories.forEachHistory(new HistoryAction() {
 			public void execute(ChildHistoryItem historyItem) {
 				result[0] = !(historyItem.getUsername().equals(username));
@@ -215,12 +250,12 @@ public class Child implements Persistable {
 	}
 
 	public void syncSuccess() {
-        changedFields.clear();
-        if ("true".equals(getField(FLAGGED_KEY))) {
-            childStatus = ChildStatus.FLAGGED;
-            return;
-        }
-        childStatus = ChildStatus.SYNCED;
+		changedFields.clear();
+		if ("true".equals(getField(FLAGGED_KEY))) {
+			childStatus = ChildStatus.FLAGGED;
+			return;
+		}
+		childStatus = ChildStatus.SYNCED;
 	}
 
 	public void syncFailed(String message) {
@@ -245,8 +280,8 @@ public class Child implements Persistable {
 		}
 
 		return ((!"".equals(queryString) && (id.equalsIgnoreCase(queryString))) || (!""
-				.equals(queryString) && name.toString().toLowerCase().indexOf(
-				queryString) != -1));
+				.equals(queryString) && name.toString().toLowerCase()
+				.indexOf(queryString) != -1));
 	}
 
 	public String getCreatedBy() {
@@ -281,29 +316,147 @@ public class Child implements Persistable {
 		return getField("current_photo_key");
 	}
 
-    public void flagRecord(String flagReason) {
-        childStatus = ChildStatus.FLAGGED;
-        put(FLAGGED_KEY, "true");
-        put(FLAG_MESSAGE_KEY, flagReason);
-        changedFields.put(FLAGGED_KEY, "true");
-        changedFields.put(FLAG_MESSAGE_KEY, flagReason);
-    }
+	public void flagRecord(String flagReason) {
+		childStatus = ChildStatus.FLAGGED;
+		put(FLAGGED_KEY, "true");
+		put(FLAG_MESSAGE_KEY, flagReason);
+		changedFields.put(FLAGGED_KEY, "true");
+		changedFields.put(FLAG_MESSAGE_KEY, flagReason);
+	}
 
-    public String flaggedByUserName() {
-        final String[] username = {null};
-        ChildHistories histories = getHistory();
-        histories.forEachHistory(new HistoryAction() {
-            public void execute(ChildHistoryItem historyItem) {
-                if (historyItem.getChangedFieldsNames().contains("flag")) {
-                    username[0] = historyItem.getUsername();                    
-                }
-            }
-        });
-        return username[0];
-    }
+	public String flaggedByUserName() {
+		final String[] username = { null };
+		ChildHistories histories = getHistory();
+		histories.forEachHistory(new HistoryAction() {
+			public void execute(ChildHistoryItem historyItem) {
+				if (historyItem.getChangedFieldsNames().contains("flag")) {
+					username[0] = historyItem.getUsername();
+				}
+			}
+		});
+		return username[0];
+	}
 
-    public String flagInformation() {
-        return getField(FLAG_MESSAGE_KEY);
-    }
+	public String flagInformation() {
+		return getField(FLAG_MESSAGE_KEY);
+	}
+
+	public String[] getImageLocations() {
+		String imageLocation = getField("photo_keys");
+
+		return fetchImagesLocation(imageLocation);
+	}
+
+	// Art
+	private String[] fetchImagesLocation(String imagesLocation) {
+		String fileNames[];
+		BitmapField[] mBmpFields;
+		imagesLocation = imagesLocation.replace('[', ' ');
+		imagesLocation = imagesLocation.replace(']', ' ');
+		imagesLocation = imagesLocation.replace('"', ' ');
+		imagesLocation = imagesLocation.trim();
+
+		fileNames = split(imagesLocation, " , ");
+		for (int i = 0; i < fileNames.length; i++) {
+			fileNames[i] = fileNames[i].trim();
+		}
+		return fileNames;
+	}
+
+	public static String[] split(String strString, String strDelimiter) {
+		String[] strArray;
+		int iOccurrences = 0;
+		int iIndexOfInnerString = 0;
+		int iIndexOfDelimiter = 0;
+		int iCounter = 0;
+
+		if (strString == null) {
+			throw new IllegalArgumentException("Input string cannot be null.");
+		}
+
+		if (strDelimiter.length() <= 0 || strDelimiter == null) {
+			throw new IllegalArgumentException(
+					"Delimeter cannot be null or empty.");
+		}
+
+		if (strString.startsWith(strDelimiter)) {
+			strString = strString.substring(strDelimiter.length());
+		}
+
+		if (!strString.endsWith(strDelimiter)) {
+			strString += strDelimiter;
+		}
+
+		while ((iIndexOfDelimiter = strString.indexOf(strDelimiter,
+				iIndexOfInnerString)) != -1) {
+			iOccurrences += 1;
+			iIndexOfInnerString = iIndexOfDelimiter + strDelimiter.length();
+		}
+
+		strArray = new String[iOccurrences];
+
+		iIndexOfInnerString = 0;
+		iIndexOfDelimiter = 0;
+
+		while ((iIndexOfDelimiter = strString.indexOf(strDelimiter,
+				iIndexOfInnerString)) != -1) {
+
+			strArray[iCounter] = strString.substring(iIndexOfInnerString,
+					iIndexOfDelimiter);
+
+			iIndexOfInnerString = iIndexOfDelimiter + strDelimiter.length();
+
+			iCounter += 1;
+		}
+
+		return strArray;
+	}
+
+	public void addImageToPhotoKeys(String imageLocation) {
+		String imagePath = "file://" + imageLocation;
+		String imageLocations = getField("photo_keys");
+		imageLocation = imageLocation.replace('.', '/');
+		String[] tempImageLocations = split(imageLocation, "/");
+		imageLocation = tempImageLocations[tempImageLocations.length - 2];
+		if (imageLocations != null || imageLocations != "") {
+			imageLocations = imageLocations.replace(']', ' ');
+			imageLocations = imageLocations.trim();
+			imageLocations += ",\"" + imageLocation + "\"]";
+			//setField("photo_keys", imageLocations);
+			data.put("photo_keys", imageLocations);
+		}
+		if (!changedFields.containsKey("photo_keys"))
+			changedFields.put("photo_keys", imagePath);
+		else {
+			String filenames = (String) changedFields.get("photo_keys");
+			changedFields.put("photo_keys", filenames +"," + imagePath);
+		}
+	}
+
+	public PostData getImagePostData(String imageLocation) {
+
+		Vector parts = new Vector();
+		
+				if (!StringUtility.isBlank(String.valueOf(imageLocation))) {
+					parts.addElement(multiPart(imageLocation, "photo",
+							HttpUtility.HEADER_CONTENT_TYPE_IMAGE));
+
+				}
+				
+
+			Arg[] headers = new Arg[1];
+			headers[0] = new Arg("Content-Disposition",
+					"form-data; name=\"child[photo_keys]\"");
+			Part part = new Part(imageLocation.toString().getBytes(), headers);
+			parts.addElement(part);
+		
+
+		Part[] anArray = new Part[parts.size()];
+		parts.copyInto(anArray);
+		String boundary = "abced";
+
+		PostData postData = new PostData(anArray, boundary);
+		return postData;
+	}
 
 }

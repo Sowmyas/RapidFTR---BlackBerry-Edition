@@ -13,7 +13,7 @@ abstract public class Controller {
         this.currentScreen = screen;
         this.uiStack = uiStack;
         this.currentScreen.setController(this);
-        this.dispatcher = dispatcher;
+        this.dispatcher = dispatcher; 
     }
 
     public void show() {

@@ -38,13 +38,18 @@ public class PhotoUploadFormField extends CustomField implements
 
 	// TODO: re render the field in the manage screen onExposed instead of doing
 	// it this way
-	public void onImagedSaved(String imageLocation, EncodedImage encodedImage) {
-		this.imageLocation = "file://" + imageLocation;
+	public void onImagedSaved(String imagePath, EncodedImage encodedImage) {
+		this.imageLocation = "file://" + imagePath;
 		int requiredWidth = Fixed32.toFP(bitmap.getWidth());
 		int requiredHeight = Fixed32.toFP(bitmap.getHeight());
-		bitmap = ImageUtility.scaleImage(encodedImage, requiredWidth, requiredHeight);
+		bitmap = ImageUtility.scaleImage(encodedImage, requiredWidth,
+				requiredHeight);
 		capturePhoto.setBitmap(bitmap);
-		setFieldValue(this.imageLocation);
+		if (getChildScreen().getChild().getField("current_photo_key") != null
+				|| getChildScreen().getChild().getField("current_photo_key") != "") {
+			setFieldValue(this.imageLocation);
+		}
+		getChildScreen().getChild().addImageToPhotoKeys(imagePath);
 	}
 
 	protected void onDisplay() {
@@ -74,9 +79,9 @@ public class PhotoUploadFormField extends CustomField implements
 	private ManageChildScreen getChildScreen() {
 		return (ManageChildScreen) getScreen();
 	}
-	
+
 	public void setValue(String value) {
-		imageLocation = value;	
+		imageLocation = value;
 		setFieldValue(value);
 	}
 }

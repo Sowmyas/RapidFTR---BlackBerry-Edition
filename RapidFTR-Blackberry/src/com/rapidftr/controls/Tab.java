@@ -33,6 +33,7 @@ public class Tab implements FocusChangeListener {
 			addElement("histories");
 			addElement("_id");
 			addElement("current_photo_key");
+			addElement("recorded_audio");
 		}
 	};
 
